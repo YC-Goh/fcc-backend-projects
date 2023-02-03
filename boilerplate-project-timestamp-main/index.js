@@ -24,24 +24,24 @@ app.get("/api/:date?", function (req, res) {
   let date;
   if (req.params.date) {
     if (req.params.date.match(/^\d+$/)) {
-      try {
-        date = new Date(parseInt(req.params.date));
-      } catch (error) {
+      date = new Date(parseInt(req.params.date));
+      if (date.toString() === 'Invalid Date') {
         res.json(errReturn);
+      } else {
+        res.json({unix: date.getTime(), utc: `${date.toUTCString()}`});
       };
-      res.json({unix: `${date.getTime()}`, utc: `${date.toUTCString()}`});
     } else if (req.params.date.match(/^[0-9a-z,\ \-]+$/i)) {
-      try {
-        date = new Date(req.params.date);
-      } catch (error) {
+      date = new Date(req.params.date);
+      if (date.toString() === 'Invalid Date') {
         res.json(errReturn);
+      } else {
+        res.json({unix: date.getTime(), utc: `${date.toUTCString()}`});
       };
-      res.json({unix: `${date.getTime()}`, utc: `${date.toUTCString()}`});
     } else {
       res.json(errReturn);
     };
   } else {
-    res.json({unix: `${Date.now()}`, utc: `${(new Date()).toUTCString()}`});
+    res.json({unix: Date.now(), utc: `${(new Date()).toUTCString()}`});
   };
 });
 
