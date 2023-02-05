@@ -18,7 +18,7 @@ let urlScheme = mongoose.Schema({
 let urlModel = mongoose.model('originalUrl', urlScheme);
 
 // Constants
-let URLPATTERN = /^https?:\/\/([a-z0-9]+(\.[a-z0-9\-]+)+)\/?$/i
+let URLPATTERN = /^https?:\/\/([a-z0-9\-]+(\.[a-z0-9\-]+)+)\/?.*/i
 let INVALIDURLERROR = {error: 'invalid url'};
 
 app.use(cors());
@@ -31,7 +31,7 @@ app.get('/', function(req, res) {
 });
 
 // Your first API endpoint
-app.get('/api/:shorturl', function(req, res) {
+app.get('/api/shorturl/:shorturl', function(req, res) {
   let shortUrl = req.params.shorturl;
   urlModel.findOne({id: shortUrl}).then(function (data) {
     res.redirect(data.root);
@@ -65,15 +65,14 @@ app.post('/api/shorturl', function(req, res, next) {
 
 app.post('/api/shorturl', async function(req, res, next) {
   let count = await urlModel.countDocuments({});
-  urlModel.create({root: req.body.url, id: count}).then(function (data) {
+  urlModel.create({root: req.body.url, id: count + 1}).then(function (data) {
     res.json({original_url: data.root, short_url: data.id});
   }).catch(function (err) {
     next(`Could not create new database document for URL ${req.body.url}.`);
   });
 });
 
-app.post('/api/shorturl', function(err, req, res, next) {
-  console.log(err.stack);
+app.use('/api/shorturl', function(err, req, res, next) {
   res.json(INVALIDURLERROR);
 });
 
