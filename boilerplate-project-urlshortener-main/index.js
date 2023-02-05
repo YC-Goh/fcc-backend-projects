@@ -17,6 +17,10 @@ let urlScheme = mongoose.Schema({
 
 let urlModel = mongoose.model('originalUrl', urlScheme);
 
+// Constants
+let URLPATTERN = /^https?:\/\/([a-z0-9]+(\.[a-z0-9\-]+)+)\/?$/i
+let INVALIDURLERROR = {error: 'invalid url'};
+
 app.use(cors());
 app.use(express.urlencoded({extended: true}));
 
@@ -36,36 +40,41 @@ app.get('/api/:shorturl', function(req, res) {
   })
 });
 
-app.post('/api/shorturl', function(req, res) {
-  let originalUrl = req.body.url;
-  let invalidUrlErr = {error: 'invalid url'};
-  if (originalUrl) {
-    let urlPattern = /^https?:\/\/([a-z0-9]+(\.[a-z0-9\-]+)+)\/?$/i
-    if (originalUrl.match(urlPattern)) {
-      let originalHostName = originalUrl.replace(urlPattern, '$1');
-      dns.lookup(originalHostName, function (err, add, ipv) {
-        if (err) {
-          res.json(invalidUrlErr);
-        } else {
-          urlModel.findOne({root: originalUrl}).then(function (data) {
-            res.json({original_url: data.root, short_url: data.id});
-          }).catch((err) => {
-            urlModel.countDocuments({}).then(function (count) {
-              urlModel.create({root: originalUrl, id: count}).then(function(data) {
-                res.json({original_url: data.root, short_url: data.id});
-              }).catch(function(err) {
-                res.json(invalidUrlErr)
-              })
-            }).catch(function (err) {
-              res.json(invalidUrlErr);
-            });
-          });
-        };
-      });
-    } else {
-      res.json(invalidUrlErr);
-    };
+app.post('/api/shorturl', function(req, res, next) {
+  if (req.body.url && req.body.url.match(URLPATTERN)) {
+    req.body.hostname = req.body.url.replace(URLPATTERN, '$1');
+    dns.lookup(req.body.hostname, function (err, add, ipv) { 
+      if (add) { 
+        next();
+      } else {
+        next(`DNS failed for host name ${req.body.hostname}.`);
+      };
+    });
+  } else {
+    next(`${req.body.hostname} is not a recognised URL format.`);
   };
+});
+
+app.post('/api/shorturl', function(req, res, next) {
+  urlModel.findOne({root: req.body.url}).then(function (data) {
+    res.json({original_url: data.root, short_url: data.id});
+  }).catch(function (err) {
+    next();
+  });
+});
+
+app.post('/api/shorturl', async function(req, res, next) {
+  let count = await urlModel.countDocuments({});
+  urlModel.create({root: req.body.url, id: count}).then(function (data) {
+    res.json({original_url: data.root, short_url: data.id});
+  }).catch(function (err) {
+    next(`Could not create new database document for URL ${req.body.url}.`);
+  });
+});
+
+app.post('/api/shorturl', function(err, req, res, next) {
+  console.log(err.stack);
+  res.json(INVALIDURLERROR);
 });
 
 app.listen(port, function() {
