@@ -4,8 +4,6 @@ let app = express();
 let cors = require('cors');
 let mongoose = require('mongoose');
 
-mongoose.connect(process.env.MONGODB_URI);
-
 let user = new mongoose.Schema({
   username: {type: String, unique: true, index: true}
 });
@@ -33,32 +31,27 @@ let listener = app.listen(process.env.PORT || 3000, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
 
-app.post('/api/users', async function (req, res, next) {
-  let {username} = req.body;
-  let data = await userModel.findOne({username})
-  if (data) {
-    let {username, _id} = data;
-    res.json({username, _id});
-  } else {
+app.post('/api/users', function (req, res, next) {
+  userModel.findOne({username: res.body.username}).then(function (data) {
+    res.json({username: data.username, _id: data._id});
+  }).catch(function (err) {
     next();
-  };
+  });
 });
 
 app.post('/api/users', function (req, res) {
-  let {username} = req.body;
-  userModel.create({username}).then(function (data) {
-    let {username, _id} = data;
-    res.json({username, _id});
+  userModel.create({username: res.body.username}).then(function (data) {
+    res.json({username: data.username, _id: data._id});
   }).catch(function (err) {
-    res.json({error: `Could not add ${username} to the database`});
+    res.json({error: `Could not add ${res.body.username} to the database`});
   });
 });
 
 app.get('/api/users', function (req, res) {
-  userModel.find({}).select({username: 1, _id: 1}).then(function (data) {
+  userModel.find({}).then(function (data) {
     res.json(data);
   }).catch(function (err) {
-    res.json({error: `Could not retrieve list of users`});
+    res.json({error: `Could not retrieve list of users`})
   });
 });
 
@@ -116,45 +109,19 @@ app.use('/api/users/:_id/logs', function (req, res, next) {
   let {from} = req.body;
   if (from) {
     if (from.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)) {
-      from = new Date(from);
+      from = (new Date(from)).toISOString().slice(0,10);
       if (from === 'Invalid Date') {
         res.json({error: 'Invalid Date'});
       } else {
-        req.body.from = from;
+        from = (new Date(from)).toISOString.slice(0,10);
         next();
       };
     } else {
       res.json({error: 'from field has invalid date format'})
     };
   } else {
-    req.body.from = new Date(0);
     next();
   };
-});
-
-app.use('/api/users/:_id/logs', function (req, res, next) {
-  let {to} = req.body;
-  if (to) {
-    if (to.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)) {
-      to = new Date(to);
-      if (to === 'Invalid Date') {
-        res.json({error: 'Invalid Date'});
-      } else {
-        req.body.to = to;
-        next();
-      };
-    } else {
-      res.json({error: 'from field has invalid date format'})
-    };
-  } else {
-    req.body.to = new Date();
-    next();
-  };
-});
-
-app.use('/api/users/:_id/logs', function (req, res, next) {
-  let {limit} = req.body;
-  if (limit && typeof(limit) === 'string') {};
 });
 
 
