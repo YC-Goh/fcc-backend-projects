@@ -20,7 +20,7 @@ let fsUnlinkAsync = function (path) {
     resolve(`${path} deleted.`);
   });
 };
-let upload = multer({dest: 'public/'})
+let upload = multer({dest: 'public/', limits: {fileSize: 134217728, files: 1, parts: 2}})
 app.post('/api/fileanalyse', upload.single('upfile'), function (req, res) {
   let {originalname: name, mimetype: type, size} = req.file;
   fsUnlinkAsync(req.file.path).then(function (result) {
