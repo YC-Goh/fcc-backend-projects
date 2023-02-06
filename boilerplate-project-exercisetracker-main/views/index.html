@@ -10,7 +10,7 @@
   <body>
     <div class="container">
       <h1>Exercise tracker</h1>
-      <form action="/api/users" method="post">
+      <form id="user-form" action="/api/users/" method="post">
         <h3>Create a New User</h3>
         <p><code>POST /api/users</code></p>
         <input id="username" type="text" name="username" placeholder="username" />
@@ -36,7 +36,7 @@
       const exerciseForm = document.getElementById("exercise-form");
 
       exerciseForm.addEventListener("submit", () => {
-        const userId = document.getElementById("uid").value;
+        const userId = document.getElementById("_id").value;
         exerciseForm.action = `/api/users/${userId}/exercises`;
 
         exerciseForm.submit();

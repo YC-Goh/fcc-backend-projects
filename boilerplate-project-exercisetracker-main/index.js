@@ -4,15 +4,17 @@ let app = express();
 let cors = require('cors');
 let mongoose = require('mongoose');
 
+mongoose.connect(process.env.MONGODB_URI);
+
 let user = new mongoose.Schema({
   username: {type: String, unique: true, index: true}
 });
 
 let exercise = new mongoose.Schema({
-  username: {type: String, index: true},
+  username: {type: String, index: true, required: true},
   description: {type: String},
-  duration: {type: Number, min: 1},
-  date: {type: String}
+  duration: {type: Number, min: 1, max: 1440, required: true},
+  date: {type: String, required: true}
 });
 
 let userModel = mongoose.model('User', user);
@@ -33,6 +35,15 @@ let listener = app.listen(process.env.PORT || 3000, function () {
 
 app.post('/api/users', async function (req, res, next) {
   let {username} = req.body;
+  if (username.match(/^[0-9a-z\ \.\-]+&/i)) {
+    next();
+  } else {
+    res.json({error: 'Only spaces, periods and dashes are allowed as special characters. Please remove all other special characters.'});
+  };
+});
+
+app.post('/api/users', async function (req, res, next) {
+  let {username} = req.body;
   let data = await userModel.findOne({username})
   if (data) {
     let {username, _id} = data;
@@ -48,37 +59,47 @@ app.post('/api/users', function (req, res) {
     let {username, _id} = data;
     res.json({username, _id});
   }).catch(function (err) {
-    res.json({error: `Could not add ${username} to the database`});
+    res.json(err);
   });
 });
 
-app.get('/api/users', function (req, res) {
+app.post('/api/users', function (req, res) {
   userModel.find({}).select({username: 1, _id: 1}).then(function (data) {
     res.json(data);
   }).catch(function (err) {
-    res.json({error: `Could not retrieve list of users`});
+    res.json(err);
   });
 });
 
-app.use('/api/users/:_id/exercises', function (req, res, next) {
-  userModel.findById(req.params._id).then(function (data) {
+app.post('/api/users/:_id/exercises', function (req, res, next) {
+  let {_id} = req.params;
+  if (_id.match(/^[0-9a-z_]+$/)) {
+    next();
+  } else {
+    res.json({error: 'Invalid ID Format'});
+  };
+});
+
+app.post('/api/users/:_id/exercises', function (req, res, next) {
+  let {_id} = req.params;
+  userModel.findById(_id).then(function (data) {
     req.body._id = data._id;
     req.body.username = data.username;
     next();
   }).catch(function (err) {
-    res.json({error: `No user with ID ${req.params._id} found`});
+    res.json(err);
   });
 })
 
-app.use('/api/users/:_id/exercises', function (req, res, next) {
+app.post('/api/users/:_id/exercises', function (req, res, next) {
   let {date} = req.body;
   if (date) {
     if (date.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)) {
-      date = (new Date(date)).toISOString().slice(0,10);
-      if (date === 'Invalid Date') {
+      date = new Date(date);
+      if (date.toString() === 'Invalid Date') {
         res.json({error: 'Invalid Date'});
       } else {
-        req.body.date = date;
+        req.body.date = date.toISOString().slice(0,10);
         next();
       };
     } else {
@@ -95,22 +116,22 @@ app.post('/api/users/:_id/exercises', function (req, res) {
   exerciseModel.create({username, description, duration, date}).then(function (data) {
     res.json({username: data.username, description: data.description, duration: data.duration, date: data.date, _id});
   }).catch(function (err) {
-    res.json({error: `Could not create new exercise record with data ${req.body}`});
+    res.json(err);
   });
 });
 
-app.use('/api/users/:_id/logs', function (req, res, next) {
+app.get('/api/users/:_id/logs', function (req, res, next) {
   let {_id} = req.params;
   userModel.findById(_id).then(function (data) {
     req.body._id = data._id;
     req.body.username = data.username;
     next();
   }).catch(function (err) {
-    res.json({error: `No user with ID ${_id} found`});
+    res.json(err);
   });
 });
 
-app.use('/api/users/:_id/logs', function (req, res, next) {
+app.get('/api/users/:_id/logs', function (req, res, next) {
   let {from} = req.body;
   if (from) {
     if (from.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/)) {
