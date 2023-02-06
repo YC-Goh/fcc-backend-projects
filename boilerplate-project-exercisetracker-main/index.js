@@ -14,7 +14,7 @@ let exercise = new mongoose.Schema({
   username: {type: String, index: true, required: true},
   description: {type: String},
   duration: {type: Number, min: 1, max: 1440, required: true},
-  date: {type: String, required: true}
+  date: {type: Date, default: Date.now}
 });
 
 let userModel = mongoose.model('User', user);
@@ -35,10 +35,10 @@ let listener = app.listen(process.env.PORT || 3000, function () {
 
 app.post('/api/users', async function (req, res, next) {
   let {username} = req.body;
-  if (username.match(/^[0-9a-z\ \.\-]+&/i)) {
+  if (username.match(/^[0-9a-z\ \.\_\-]+$/i)) {
     next();
   } else {
-    res.json({error: 'Only spaces, periods and dashes are allowed as special characters. Please remove all other special characters.'});
+    res.json({error: 'Only spaces, underlines, periods and dashes are allowed as special characters. Please remove all other special characters.'});
   };
 });
 
@@ -99,14 +99,13 @@ app.post('/api/users/:_id/exercises', function (req, res, next) {
       if (date.toString() === 'Invalid Date') {
         res.json({error: 'Invalid Date'});
       } else {
-        req.body.date = date.toISOString().slice(0,10);
+        req.body.date = date;
         next();
       };
     } else {
       res.json({error: 'Invalid Date Format'});
     };
   } else {
-    req.body.date = (new Date()).toISOString().slice(0,10);
     next();
   };
 })
@@ -114,7 +113,7 @@ app.post('/api/users/:_id/exercises', function (req, res, next) {
 app.post('/api/users/:_id/exercises', function (req, res) {
   let {description, duration, date, _id, username} = req.body;
   exerciseModel.create({username, description, duration, date}).then(function (data) {
-    res.json({username: data.username, description: data.description, duration: data.duration, date: data.date, _id});
+    res.json({username: data.username, description: data.description, duration: data.duration, date: data.date.toDateString(), _id});
   }).catch(function (err) {
     res.json(err);
   });
@@ -148,7 +147,7 @@ app.get('/api/users/:_id/logs', function (req, res, next) {
       if (from.toString() === 'Invalid Date') {
         res.json({error: 'Invalid Date'});
       } else {
-        req.query.from = from.toISOString().slice(0,10);
+        req.query.from = from;
         console.log(req.query);
         next();
       };
@@ -156,7 +155,7 @@ app.get('/api/users/:_id/logs', function (req, res, next) {
       res.json({error: 'from field has invalid date format'})
     };
   } else {
-    req.query.from = (new Date(0)).toISOString().slice(0,10);
+    req.query.from = new Date('0001-01-01');
     console.log(req.query);
     next();
   };
@@ -170,7 +169,7 @@ app.get('/api/users/:_id/logs', function (req, res, next) {
       if (to.toString() === 'Invalid Date') {
         res.json({error: 'Invalid Date'});
       } else {
-        req.query.to = to.toISOString().slice(0,10);
+        req.query.to = to;
         console.log(req.query);
         next();
       };
@@ -178,7 +177,7 @@ app.get('/api/users/:_id/logs', function (req, res, next) {
       res.json({error: 'to field has invalid date format'})
     };
   } else {
-    req.query.to = (new Date()).toISOString().slice(0,10);
+    req.query.to = new Date();
     console.log(req.query);
     next();
   };
@@ -203,11 +202,15 @@ app.get('/api/users/:_id/logs', function (req, res) {
   let {from, to, limit, _id, username} = req.query;
   let SELECT = {date: 1, duration: 1, description: 1};
   let FIND = {username};
+  let logMapCallback = function (ex) {
+    let {date, duration, description} = ex;
+    return {description, duration, date: date.toDateString()};
+  };
   let findHandler = function (err, log) {
     if (err) {
       res.json(err);
     } else {
-      res.json({username, count: log.length, _id, log});
+      res.json({username, count: log.length, _id, log: log.map(logMapCallback)});
     };
   };
   if (limit) {
