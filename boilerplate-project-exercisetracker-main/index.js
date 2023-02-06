@@ -31,27 +31,32 @@ let listener = app.listen(process.env.PORT || 3000, function () {
   console.log('Your app is listening on port ' + listener.address().port);
 });
 
-app.post('/api/users', function (req, res, next) {
-  userModel.findOne({username: res.body.username}).then(function (data) {
-    res.json({username: data.username, _id: data._id});
-  }).catch(function (err) {
+app.post('/api/users', async function (req, res, next) {
+  let {username} = req.body;
+  let data = await userModel.findOne({username})
+  if (data) {
+    let {username, _id} = data;
+    res.json({username, _id});
+  } else {
     next();
-  });
+  };
 });
 
 app.post('/api/users', function (req, res) {
-  userModel.create({username: res.body.username}).then(function (data) {
-    res.json({username: data.username, _id: data._id});
+  let {username} = req.body;
+  userModel.create({username}).then(function (data) {
+    let {username, _id} = data;
+    res.json({username, _id});
   }).catch(function (err) {
-    res.json({error: `Could not add ${res.body.username} to the database`});
+    res.json({error: `Could not add ${username} to the database`});
   });
 });
 
 app.get('/api/users', function (req, res) {
-  userModel.find({}).then(function (data) {
+  userModel.find({}).select({username: 1, _id: 1}).then(function (data) {
     res.json(data);
   }).catch(function (err) {
-    res.json({error: `Could not retrieve list of users`})
+    res.json({error: `Could not retrieve list of users`});
   });
 });
 
